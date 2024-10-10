@@ -47,6 +47,9 @@ train_loader_at_eval = data.DataLoader(dataset=train_dataset, batch_size=2*BATCH
 test_loader = data.DataLoader(dataset=test_dataset, batch_size=2*BATCH_SIZE, shuffle=False)
 
 
+
+
+
 print(train_dataset)
 print("===================")
 print(test_dataset)
@@ -106,12 +109,12 @@ model = Net(in_channels=n_channels, num_classes=n_classes)
 
 ##criterion = multiclass_f1_score()
 
-##"""
+
 if task == "multi-label, binary-class":
     criterion = nn.BCEWithLogitsLoss()
 else:
     criterion = nn.CrossEntropyLoss()
-##"""
+
     
 optimizer = optim.SGD(model.parameters(), lr=lr, momentum=0.9)
 
@@ -175,7 +178,6 @@ def test(split):
 print('==> Evaluating ...')
 test('train')
 test('test')
-
 
 #use more loss functions that do fale positives
 
