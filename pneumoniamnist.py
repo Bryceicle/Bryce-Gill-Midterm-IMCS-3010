@@ -7,6 +7,7 @@ Created on Thu Sep 19 12:35:48 2024
 
 from tqdm import tqdm
 import numpy as np
+import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -21,9 +22,11 @@ from medmnist import INFO, Evaluator
 data_flag = 'pneumoniamnist'
 download = True
 
-NUM_EPOCHS = 3
+EPOCH_RANGE = [3] #Multiple runs of 3 epochs to get average of auc and acc
+#EPOCH_RANGE = [1,2,3,4,5,6,7,8,9,10] #Testing out diffeent epoch values
 BATCH_SIZE = 128
 lr = 0.001
+metrics_list = []
 
 info = INFO[data_flag]
 task = info['task']
@@ -120,65 +123,94 @@ optimizer = optim.SGD(model.parameters(), lr=lr, momentum=0.9)
 
 # train
 
-for epoch in range(NUM_EPOCHS):
-    train_correct = 0
-    train_total = 0
-    test_correct = 0
-    test_total = 0
-    
-    model.train()
-    for inputs, targets in tqdm(train_loader):
-        # forward + backward + optimize
-        optimizer.zero_grad()
-        outputs = model(inputs)
-        
-        if task == 'multi-label, binary-class':
-            targets = targets.to(torch.float32)
-            loss = criterion(outputs, targets)
-        else:
-            targets = targets.squeeze().long()
-            loss = criterion(outputs, targets)
-        
-        loss.backward()
-        optimizer.step()
-        
-# evaluation
 
-def test(split):
-    model.eval()
-    y_true = torch.tensor([])
-    y_score = torch.tensor([])
-    
-    data_loader = train_loader_at_eval if split == 'train' else test_loader
+print('==> Training multiple epochs ...')
 
-    with torch.no_grad():
-        for inputs, targets in data_loader:
+for NUM_EPOCHS in EPOCH_RANGE:    
+
+    print('==> Training ...')
+    print('Epoch: %d' % (NUM_EPOCHS))
+    
+    for epoch in range(NUM_EPOCHS):
+        train_correct = 0
+        train_total = 0
+        test_correct = 0
+        test_total = 0
+        
+        model.train()
+        for inputs, targets in tqdm(train_loader):
+            # forward + backward + optimize
+            optimizer.zero_grad()
             outputs = model(inputs)
-
+            
             if task == 'multi-label, binary-class':
                 targets = targets.to(torch.float32)
-                outputs = outputs.softmax(dim=-1)
+                loss = criterion(outputs, targets)
             else:
                 targets = targets.squeeze().long()
-                outputs = outputs.softmax(dim=-1)
-                targets = targets.float().resize_(len(targets), 1)
-
-            y_true = torch.cat((y_true, targets), 0)
-            y_score = torch.cat((y_score, outputs), 0)
-
-        y_true = y_true.numpy()
-        y_score = y_score.detach().numpy()
-        
-        evaluator = Evaluator(data_flag, split)
-        metrics = evaluator.evaluate(y_score)
+                loss = criterion(outputs, targets)
+            
+            loss.backward()
+            optimizer.step()
+            
+    # evaluation
     
-        print('%s  auc: %.3f  acc:%.3f' % (split, *metrics))
-
+    def test(split):
+        model.eval()
+        y_true = torch.tensor([])
+        y_score = torch.tensor([])
         
-print('==> Evaluating ...')
-test('train')
-test('test')
+        data_loader = train_loader_at_eval if split == 'train' else test_loader
+    
+        with torch.no_grad():
+            for inputs, targets in data_loader:
+                outputs = model(inputs)
+    
+                if task == 'multi-label, binary-class':
+                    targets = targets.to(torch.float32)
+                    outputs = outputs.softmax(dim=-1)
+                else:
+                    targets = targets.squeeze().long()
+                    outputs = outputs.softmax(dim=-1)
+                    targets = targets.float().resize_(len(targets), 1)
+    
+                y_true = torch.cat((y_true, targets), 0)
+                y_score = torch.cat((y_score, outputs), 0)
+    
+            y_true = y_true.numpy()
+            y_score = y_score.detach().numpy()
+            
+            evaluator = Evaluator(data_flag, split)
+            metrics = evaluator.evaluate(y_score)
+            if split == 'test':
+                metrics_list.append(metrics)
+            
+        
+            print('%s  auc: %.3f  acc:%.3f' % (split, *metrics))
+       
+    print('==> Evaluating ...')
+    test('train')
+    test('test')
+    
+auc_list = []
+acc_list = []
 
+for i in range(len(metrics_list)):
+    auc_list.append(metrics_list[i][0])
+    
+for i in range(len(metrics_list)):
+    acc_list.append(metrics_list[i][1])
+    
+plt.plot(range(len(EPOCH_RANGE)),auc_list, label='auc')
+plt.plot(range(len(EPOCH_RANGE)),acc_list, label='acc')
+legend = plt.legend(loc='lower right', shadow=True, fontsize='medium')
+plt.xlabel('Epochs')
+plt.show
+
+auc_avg = np.sum(auc_list)/len(auc_list)
+acc_avg = np.sum(acc_list)/len(acc_list)
+
+print("avg auc: %f \n avg acc: %f" %(auc_avg, acc_avg))
 #use more loss functions that do fale positives
 
 #look at instances where there's missclassifi
