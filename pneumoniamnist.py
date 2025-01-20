@@ -19,14 +19,14 @@ from torcheval.metrics.functional import multiclass_f1_score
 import medmnist
 from medmnist import INFO, Evaluator
 
-data_flag = 'pneumoniamnist'
+data_flag = 'chestmnist'
 download = True
 
-EPOCH_RANGE = [3] #Multiple runs of 3 epochs to get average of auc and acc
+EPOCH_RANGE = [3,3,3,3,3,3,3,3,3,3] #Multiple runs of 3 epochs to get average of auc and acc
 #EPOCH_RANGE = [1,2,3,4,5,6,7,8,9,10] #Testing out diffeent epoch values
 BATCH_SIZE = 128
 lr = 0.001
-metrics_list = []
+eval_metrics_list = []
 
 info = INFO[data_flag]
 task = info['task']
@@ -183,7 +183,7 @@ for NUM_EPOCHS in EPOCH_RANGE:
             evaluator = Evaluator(data_flag, split)
             metrics = evaluator.evaluate(y_score)
             if split == 'test':
-                metrics_list.append(metrics)
+                eval_metrics_list.append(metrics)
             
         
             print('%s  auc: %.3f  acc:%.3f' % (split, *metrics))
@@ -195,22 +195,23 @@ for NUM_EPOCHS in EPOCH_RANGE:
 auc_list = []
 acc_list = []
 
-for i in range(len(metrics_list)):
-    auc_list.append(metrics_list[i][0])
+for i in range(len(eval_metrics_list)):
+    auc_list.append(eval_metrics_list[i][0])
     
-for i in range(len(metrics_list)):
-    acc_list.append(metrics_list[i][1])
+for i in range(len(eval_metrics_list)):
+    acc_list.append(eval_metrics_list[i][1])
+    
+auc_avg = np.sum(auc_list)/len(auc_list)
+acc_avg = np.sum(acc_list)/len(acc_list)
+auc_max = max(auc_list)
+acc_max = max(acc_list)
+print("avg auc: %f \navg acc: %f \nmax auc: %f \nmax acc: %f" %(auc_avg, acc_avg, auc_max, acc_max))
     
 plt.plot(range(len(EPOCH_RANGE)),auc_list, label='auc')
 plt.plot(range(len(EPOCH_RANGE)),acc_list, label='acc')
-legend = plt.legend(loc='lower right', shadow=True, fontsize='medium')
+plt.plot(range(len(EPOCH_RANGE)),[acc_avg]*len(EPOCH_RANGE), label='acc avg')
+plt.plot(range(len(EPOCH_RANGE)),[auc_avg]*len(EPOCH_RANGE), label='auc avg')
+#legend = plt.legend(loc='middle right', shadow=False, fontsize='small')
 plt.xlabel('Epochs')
 plt.show
 
-auc_avg = np.sum(auc_list)/len(auc_list)
-acc_avg = np.sum(acc_list)/len(acc_list)
-
-print("avg auc: %f \n avg acc: %f" %(auc_avg, acc_avg))
-#use more loss functions that do fale positives
-
-#look at instances where there's missclassifi
